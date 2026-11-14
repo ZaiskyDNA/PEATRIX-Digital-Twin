@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PEATRIX · Digital Twin KHG.61.12.02 Kubu Raya</title>
+<meta name="description" content="Prototipe uji konsep digital twin lahan gambut KHG.61.12.02, Kubu Raya: ketebalan gambut, tinggi muka air, dan prioritas mitigasi karhutla.">
+<meta name="theme-color" content="#FFF6EE">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/poppins-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/poppins-600.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="vendor/maplibre-gl.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="./" aria-label="PEATRIX, muat ulang">
+    <svg viewBox="0 0 28 28" width="26" height="26" aria-hidden="true"><path d="M2 9h24M2 9c4 9 8 13 12 13s8-4 12-13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M5 14.5h18" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="2.6 2.6" stroke-linecap="round"/></svg>
+    <span>PEATRIX</span>
+  </a>
+  <p class="where"><b>Digital Twin</b> <span class="khg">KHG.61.12.02 · Kubu Raya</span></p>
+  <div class="bar-actions">
+    <div class="seg" role="group" aria-label="Tampilan">
+      <button type="button" data-view="2d" aria-pressed="true">2D</button>
+      <button type="button" data-view="3d" aria-pressed="false">3D</button>
+    </div>
+    <button type="button" class="btn btn-primary" id="demoBtn">
+      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg>
+      <span>Mode Demo</span>
+    </button>
+    <button type="button" class="btn btn-icon" id="infoBtn" aria-label="Sumber data dan keterangan">
+      <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M10 9v5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><circle cx="10" cy="6.2" r="1.1" fill="currentColor"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="stage" data-tab="rank">
+  <aside class="rail rail-left" id="panelScenario" aria-label="Skenario dan layer">
+    <section class="block" data-pane="scenario">
+      <h2>Skenario</h2>
+      <label class="switch">
+        <input type="checkbox" id="sekat">
+        <span class="switch-track" aria-hidden="true"></span>
+        <span class="switch-text"><b>Sekat kanal kubah timur</b><small>651 ruas kanal, drainase −60%, pengaruh ≤600 m</small></span>
+      </label>
+      <div class="field">
+        <div class="field-head"><label for="defisit">Defisit hujan kemarau</label><output id="defisitOut">0%</output></div>
+        <input type="range" id="defisit" min="0" max="30" step="5" value="0">
+        <small>Jun–Okt. Dihitung untuk 0% dan 30%; nilai di antaranya interpolasi linier.</small>
+      </div>
+      <button type="button" class="link" id="resetScenario">Kembali ke kondisi dasar</button>
+    </section>
+
+    <section class="block" data-pane="scenario">
+      <h2>Bobot indeks <span class="hint">jumlah = 1</span></h2>
+      <div class="weights">
+        <div class="field"><div class="field-head"><label for="wV">V · kerentanan hidrologis</label><output id="wVOut">0,45</output></div><input type="range" id="wV" min="0" max="100" value="45"></div>
+        <div class="field"><div class="field-head"><label for="wC">C · konsekuensi (ketebalan)</label><output id="wCOut">0,35</output></div><input type="range" id="wC" min="0" max="100" value="35"></div>
+        <div class="field"><div class="field-head"><label for="wE">E · eksposur</label><output id="wEOut">0,20</output></div><input type="range" id="wE" min="0" max="100" value="20"></div>
+      </div>
+      <button type="button" class="link" id="resetWeights">Bobot AHP esai (0,45 · 0,35 · 0,20)</button>
+    </section>
+
+    <section class="block" data-pane="layer">
+      <h2>Layer</h2>
+      <div class="layers" id="layerList" role="radiogroup" aria-label="Layer raster"></div>
+      <h3>Tumpang susun</h3>
+      <div class="overlays" id="overlayList"></div>
+    </section>
+  </aside>
+
+  <section class="center">
+    <div class="mapwrap">
+      <div id="map" aria-label="Peta KHG.61.12.02"></div>
+      <div id="three" hidden></div>
+
+      <div class="demo" id="demoBar" hidden>
+        <div class="demo-text"><b id="demoTitle"></b><span id="demoCaption"></span></div>
+        <div class="demo-side"><span id="demoStep"></span><button type="button" class="btn btn-ghost" id="demoStop">Hentikan</button></div>
+        <i class="demo-progress" id="demoProgress"></i>
+      </div>
+
+      <div class="legend" id="legend">
+        <div class="legend-head"><b id="legendName"></b><span class="badge" id="legendBadge"></span></div>
+        <canvas id="legendRamp" width="220" height="10"></canvas>
+        <div class="legend-scale"><span id="legendMin"></span><span id="legendUnit"></span><span id="legendMax"></span></div>
+      </div>
+
+      <div class="readout" id="readout" hidden></div>
+
+      <div class="tools3d" id="tools3d" hidden>
+        <label for="peel">Tembus permukaan</label>
+        <input type="range" id="peel" min="0" max="100" value="45">
+        <small>Vertikal dilebihkan 60×. Garis putus-putus = muka air tanah.</small>
+      </div>
+      <p class="loading" id="loading">Memuat data twin…</p>
+    </div>
+
+    <figure class="section" id="sectionFig">
+      <figcaption>
+        <b>Penampang barat–timur lewat kubah timur</b>
+        <span class="badge">Prediksi ML + Simulasi</span>
+        <span class="keys"><span><i class="key key-peat"></i>gambut (median)</span><span><i class="key key-tma"></i>TMA skenario</span><span><i class="key key-base"></i>TMA dasar</span><span><i class="key key-thr"></i>ambang 0,4 m</span></span>
+      </figcaption>
+      <svg id="sectionSvg" role="img" aria-label="Penampang ketebalan gambut dan tinggi muka air tanah"></svg>
+    </figure>
+  </section>
+
+  <aside class="rail rail-right" id="panelRank" aria-label="Peringkat dan TMA">
+    <section class="block" data-pane="rank">
+      <h2 id="rankTitle">Peringkat prioritas</h2>
+      <div class="rank-compare">
+        <div class="seg seg-small seg-wide" role="group" aria-label="Pembanding">
+          <button type="button" data-compare="konv" aria-pressed="true">vs konvensional</button>
+          <button type="button" data-compare="dasar" aria-pressed="false">vs dasar</button>
+        </div>
+      </div>
+      <p class="note" id="rankNote"></p>
+      <ol class="rank" id="rankList"></ol>
+      <div class="unit" id="unitDetail"></div>
+    </section>
+
+    <section class="block" data-pane="tma">
+      <div id="sectionSlot"></div>
+      <div class="block-head">
+        <h2>TMA stasiun: observasi vs model</h2>
+        <span class="badge">Pengukuran + Simulasi</span>
+      </div>
+      <div class="seg seg-small seg-wide" role="group" aria-label="Stasiun" id="stationSeg"></div>
+      <svg id="stationSvg" role="img" aria-label="Deret waktu tinggi muka air tanah stasiun"></svg>
+      <p class="note" id="stationNote"></p>
+    </section>
+  </aside>
+
+  <nav class="tabs" aria-label="Panel">
+    <button type="button" data-tabbtn="rank" aria-pressed="true">Peringkat</button>
+    <button type="button" data-tabbtn="scenario" aria-pressed="false">Skenario</button>
+    <button type="button" data-tabbtn="layer" aria-pressed="false">Layer</button>
+    <button type="button" data-tabbtn="tma" aria-pressed="false">TMA</button>
+  </nav>
+</main>
+
+<dialog id="info" aria-labelledby="infoTitle">
+  <form method="dialog" class="info-close"><button class="btn btn-icon" aria-label="Tutup">
+    <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+  </button></form>
+  <h2 id="infoTitle">Tentang prototipe ini</h2>
+  <p class="lead">Ini <b>uji konsep</b>, bukan sistem operasional. Prototipe menunjukkan bahwa alur “survei geofisika lintasan → peta ketebalan + ketidakpastian → simulasi muka air → prioritas” bekerja pada satu KHG nyata dengan data publik. Pada Fase 1 PEATRIX, peran lintasan AEM digantikan survei GPR.</p>
+
+  <h3>Validasi ketebalan pada 63 titik coring</h3>
+  <table class="tbl" id="valTable"><thead><tr><th>Pendekatan</th><th>n</th><th>RMSE (m)</th><th>R²</th><th>Cakupan selang 90%</th></tr></thead><tbody></tbody></table>
+  <p class="note">Validasi silang blok spasial 1 km. QRF dari AEM tidak memakai satu pun coring saat dilatih. Saat satu kubah sama sekali tidak disurvei, semua metode gagal memprediksinya (RMSE ±2,3 m di kubah timur).</p>
+
+  <h3>Sumber dan jenis data</h3>
+  <table class="tbl">
+    <thead><tr><th>Data</th><th>Jenis</th><th>Sumber</th></tr></thead>
+    <tbody>
+      <tr><td>63 titik coring ketebalan</td><td><span class="badge">Pengukuran</span></td><td>Silvestri et al. (2019), Zenodo 10.5281/zenodo.3572061</td></tr>
+      <tr><td>Ketebalan AEM SkyTEM, 100 lintasan</td><td><span class="badge">Inversi geofisika</span></td><td>Silvestri et al. (2019), <i>JGR Earth Surface</i> 124</td></tr>
+      <tr><td>TMA harian BRG17–20, kurva retensi BRG18</td><td><span class="badge">Pengukuran</span></td><td>Taufik et al. (2022), <i>Data in Brief</i> 41</td></tr>
+      <tr><td>Ketebalan median, L90, PEATRIX, Peta B</td><td><span class="badge">Prediksi ML</span></td><td>Quantile regression forest, grid 100 m</td></tr>
+      <tr><td>TMA puncak kemarau, skenario</td><td><span class="badge">Simulasi</span></td><td>Neraca air harian, CHIRPS + ET0 ERA5, 2018–2019</td></tr>
+      <tr><td>Elevasi</td><td><span class="badge">Penginderaan jauh</span></td><td>Copernicus DEM GLO-30 (pengganti DEMNAS)</td></tr>
+      <tr><td>Titik panas 2015–2025</td><td><span class="badge">Penginderaan jauh</span></td><td>NASA FIRMS VIIRS 375 m</td></tr>
+      <tr><td>Kanal, jalan, desa; bangunan</td><td><span class="badge">Peta dasar</span></td><td>OpenStreetMap; Microsoft Building Footprints</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Keterbatasan</h3>
+  <ul class="limits">
+    <li>Ambang AEM 45 Ω·m dipilih memakai data di lokasi coring yang sama, jadi validasi tidak sepenuhnya independen.</li>
+    <li>Stasiun TMA berada di luar KHG atau lokasinya tidak dipublikasikan. Peta TMA hanya bermakna <b>relatif antarskenario</b>; hubungan drainase dengan jarak kanal adalah asumsi.</li>
+    <li>Unit A–H adalah kelompok sel hasil pengelompokan spasial, bukan batas desa resmi.</li>
+    <li>Sentinel-1/2 belum dipakai. Grid 100 m adalah resolusi produk, bukan kerapatan observasi.</li>
+  </ul>
+
+  <h3>Bagikan</h3>
+  <div class="share">
+    <div id="qr" aria-label="Kode QR alamat halaman ini"></div>
+    <div>
+      <p id="shareUrl" class="share-url"></p>
+      <button type="button" class="btn btn-ghost" id="qrDownload">Unduh QR (PNG)</button>
+      <p class="note">Tanpa pelacakan dan tanpa cookie. Tim PEATRIX, Universitas Gadjah Mada, EIC 2026.</p>
+    </div>
+  </div>
+</dialog>
+
+<script src="vendor/maplibre-gl.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
