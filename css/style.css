@@ -40,6 +40,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* ───── Top bar ───── */
 .bar { display: flex; align-items: center; gap: 18px; padding: 0 16px; background: var(--white); border-bottom: 1px solid var(--rule); min-width: 0; }
 .brand { display: flex; align-items: center; gap: 8px; color: var(--red); text-decoration: none; font-weight: 700; font-size: 18px; letter-spacing: .02em; }
+.brand img { display: block; height: 32px; width: auto; }
+.info-logo { display: block; width: 128px; height: auto; margin: 0 0 12px; }
 .where { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
 .where b { font-weight: 600; }
 .khg { color: var(--ink-soft); margin-left: 6px; }
